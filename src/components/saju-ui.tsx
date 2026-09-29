@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { shareUrl } from "@/lib/share";
 import type { Pillar } from "@/lib/saju/calc";
 import {
+  type TenGod,
   ELEMENT_HEX,
   ELEMENT_KO,
   GAN,
@@ -16,6 +17,7 @@ import {
   ZHI_KO,
   zhiMainGan,
 } from "@/lib/saju/constants";
+import { GLOSSARY, STAGE_EASY, TEN_GOD_EASY } from "@/lib/saju/glossary";
 import { useProfiles } from "@/lib/profiles";
 
 /** 오행 색으로 칠한 천간/지지 한 글자 */
@@ -54,19 +56,19 @@ export function PillarTable({ pillars }: { pillars: Pillar[] }) {
       <div className={row} style={style}>
         <Label />
         {cols.map((p) => (
-          <div key={p.key} className={`text-sm font-bold ${p.key === "day" ? "text-accent" : ""}`}>{p.label}</div>
+          <div key={p.key} className={`text-sm font-bold ${p.key === "day" ? "text-accent" : ""}`}><Term word={p.label} /></div>
         ))}
       </div>
       <div className={row} style={style}>
-        <Label>십신</Label>
+        <Label><Term word="십신" /></Label>
         {cols.map((p) => <div key={p.key} className="text-sm">{p.ganGod === "일간" ? "나(일간)" : p.ganGod}</div>)}
       </div>
       <div className={row} style={style}>
-        <Label>천간</Label>
+        <Label><Term word="천간" /></Label>
         {cols.map((p) => <div key={p.key} className="flex justify-center"><Char gan={p.gan} /></div>)}
       </div>
       <div className={row} style={style}>
-        <Label>지지</Label>
+        <Label><Term word="지지" /></Label>
         {cols.map((p) => <div key={p.key} className="flex justify-center"><Char zhi={p.zhi} /></div>)}
       </div>
       <div className={row} style={style}>
@@ -74,7 +76,7 @@ export function PillarTable({ pillars }: { pillars: Pillar[] }) {
         {cols.map((p) => <div key={p.key} className="text-sm">{p.zhiGod}</div>)}
       </div>
       <div className={`${row} border-t border-line pt-2`} style={style}>
-        <Label>지장간</Label>
+        <Label><Term word="지장간" /></Label>
         {cols.map((p) => (
           <div key={p.key} className="text-xs text-muted">
             {p.hidden.map((h) => GAN_KO[h.gan]).join(" ")}
@@ -82,11 +84,15 @@ export function PillarTable({ pillars }: { pillars: Pillar[] }) {
         ))}
       </div>
       <div className={row} style={style}>
-        <Label>12운성</Label>
-        {cols.map((p) => <div key={p.key} className="text-xs">{p.stage}</div>)}
+        <Label><Term word="12운성" /></Label>
+        {cols.map((p) => (
+          <div key={p.key} className="text-xs">
+            <Term word={p.stage} text={STAGE_EASY[p.stage]} />
+          </div>
+        ))}
       </div>
       <div className={row} style={style}>
-        <Label>납음</Label>
+        <Label><Term word="납음" /></Label>
         {cols.map((p) => <div key={p.key} className="text-xs text-muted">{p.nayin}</div>)}
       </div>
     </div>
@@ -155,12 +161,75 @@ export function NeedProfile() {
   );
 }
 
-export function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
+export function SectionTitle({ children, sub, easy }: { children: React.ReactNode; sub?: string; easy?: React.ReactNode }) {
   return (
     <div className="mb-3">
       <h2 className="font-serif text-xl font-bold">{children}</h2>
       {sub && <p className="text-sm text-muted">{sub}</p>}
+      {easy && <EasyNote>{easy}</EasyNote>}
     </div>
+  );
+}
+
+/** "쉽게 말하면" 풀이 상자 */
+export function EasyNote({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <p className={`mt-2 rounded-lg border-l-4 border-gold bg-surface-2 px-3 py-2 text-sm leading-relaxed ${className}`}>
+      <b className="text-gold">쉽게 말하면</b> {children}
+    </p>
+  );
+}
+
+/**
+ * 누르면 쉬운 풀이가 뜨는 용어. text를 주지 않으면 용어 사전(GLOSSARY)에서 찾는다.
+ * 풀이 상자는 화면 밖으로 나가지 않도록 fixed 위치를 뷰포트 안으로 맞춘다.
+ */
+export function Term({ word, text, children }: { word: string; text?: string; children?: React.ReactNode }) {
+  const desc = text ?? GLOSSARY[word];
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!pos) return;
+    const close = (e: Event) => {
+      if (e.type === "keydown" && (e as KeyboardEvent).key !== "Escape") return;
+      if (e.type === "pointerdown" && btn.current?.contains(e.target as Node)) return;
+      setPos(null);
+    };
+    const events = ["pointerdown", "scroll", "resize", "keydown"] as const;
+    events.forEach((t) => window.addEventListener(t, close, true));
+    return () => events.forEach((t) => window.removeEventListener(t, close, true));
+  }, [pos]);
+
+  if (!desc) return <>{children ?? word}</>;
+  const width = 256;
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        aria-expanded={!!pos}
+        className="cursor-help underline decoration-gold decoration-dotted underline-offset-4"
+        onClick={() => {
+          if (pos) return setPos(null);
+          const r = btn.current!.getBoundingClientRect();
+          const left = Math.min(Math.max(8, r.left + r.width / 2 - width / 2), window.innerWidth - width - 8);
+          setPos({ top: r.bottom + 6, left });
+        }}
+      >
+        {children ?? word}
+      </button>
+      {pos && (
+        <span
+          role="tooltip"
+          className="fixed z-50 rounded-lg border border-line bg-surface p-3 text-left text-xs leading-relaxed font-normal text-ink shadow-lg"
+          style={{ top: pos.top, left: pos.left, width }}
+        >
+          <b className="mb-1 block text-sm text-accent">{word}</b>
+          {desc}
+        </span>
+      )}
+    </>
   );
 }
 
@@ -185,5 +254,27 @@ export function ShareButton({ path, title, label = "공유" }: { path: string; t
         <span className="absolute top-full right-0 z-10 mt-1 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs text-bg">{msg}</span>
       )}
     </span>
+  );
+}
+
+/** 운에 들어온 십신의 쉬운 뜻과 할 일·피할 일 */
+export function LuckGuide({ gods }: { gods: TenGod[] }) {
+  return (
+    <div className="mt-3 space-y-2">
+      {[...new Set(gods)].map((g) => (
+        <div key={g} className="rounded-lg border border-line bg-surface p-3">
+          <p className="font-bold">
+            {g} <span className="font-normal text-muted">— {TEN_GOD_EASY[g].meaning}</span>
+          </p>
+          <p className="mt-1 text-xs text-muted">관련된 사람: {TEN_GOD_EASY[g].people}</p>
+          <p className="mt-1.5">
+            <b className="text-accent">해 보세요</b> {TEN_GOD_EASY[g].todo}
+          </p>
+          <p className="mt-0.5">
+            <b>피하세요</b> {TEN_GOD_EASY[g].avoid}
+          </p>
+        </div>
+      ))}
+    </div>
   );
 }

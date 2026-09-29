@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import Link from "next/link";
-import { Analytics } from "@vercel/analytics/next";
+import PrivateAnalytics from "@/components/PrivateAnalytics";
 import Header from "@/components/Header";
 import "./globals.css";
 
@@ -53,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             서비스 안내 · 개인정보 처리 · 면책 고지
           </Link>
         </footer>
-        <Analytics />
+        <PrivateAnalytics />
       </body>
     </html>
   );

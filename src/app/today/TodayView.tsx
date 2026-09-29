@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Char, ProfileBar, ScoreBar, SectionTitle } from "@/components/saju-ui";
+import { Char, LuckGuide, ProfileBar, ScoreBar, SectionTitle, Term } from "@/components/saju-ui";
 import { useProfiles } from "@/lib/profiles";
 import { computeSaju } from "@/lib/saju/calc";
 import { computeDaily } from "@/lib/saju/daily";
@@ -67,6 +67,22 @@ export default function TodayView() {
           </p>
           <p className="mx-auto mt-3 max-w-xl leading-relaxed">{daily.headline}</p>
           {daily.relationNote && <p className="mx-auto mt-2 max-w-xl text-sm text-muted">{daily.relationNote}</p>}
+        </section>
+
+        <section className="card">
+          <SectionTitle
+            easy={
+              <>
+                날마다 바뀌는 그날의 두 글자(<Term word="일진" />)가 나에게 어떤 역할(<Term word="십신" />)로 들어오는지 보는 것입니다.
+                아래 조언을 하루의 작은 가이드로 삼아 보세요.
+              </>
+            }
+          >
+            오늘 이렇게 보내세요
+          </SectionTitle>
+          <div className="text-sm">
+            <LuckGuide gods={[daily.ganGod, daily.zhiGod]} />
+          </div>
         </section>
 
         <section className="card">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { Char, ProfileBar, ScoreBar, SectionTitle } from "@/components/saju-ui";
+import { Char, EasyNote, LuckGuide, ProfileBar, ScoreBar, SectionTitle, Term } from "@/components/saju-ui";
 import { useProfiles } from "@/lib/profiles";
 import { computeSaju } from "@/lib/saju/calc";
 import { GAN_KO, ZHI_KO, ZODIAC } from "@/lib/saju/constants";
@@ -59,17 +59,32 @@ export default function FortuneView() {
           )}
         </section>
 
-        {y.details.length > 0 && (
-          <section className="card">
-            <SectionTitle>올해의 흐름</SectionTitle>
+        <section className="card">
+          <SectionTitle
+            sub={`${GAN_KO[y.gan]}${ZHI_KO[y.zhi]}년이 나에게 ${y.ganGod}·${y.zhiGod}로 들어옵니다`}
+            easy={
+              <>
+                해마다 바뀌는 그 해의 두 글자(<Term word="세운" />)가 내 사주의 주인인 나(<Term word="일간" />)에게 어떤 역할로
+                들어오는지(<Term word="십신" />)를 보고, 나에게 필요한 기운(<Term word="용신" />)을 채워 주는지를 따져 점수를
+                매깁니다. 윗글자는 상반기, 아랫글자는 하반기에 더 강하게 느껴집니다.
+              </>
+            }
+          >
+            올해의 흐름
+          </SectionTitle>
+          {y.details.length > 0 && (
             <ul className="space-y-2 text-sm leading-relaxed">
               {y.details.map((d) => <li key={d}>• {d}</li>)}
             </ul>
-          </section>
-        )}
+          )}
+          <p className="mt-4 text-sm font-bold">올해 이렇게 보내세요</p>
+          <div className="text-sm">
+            <LuckGuide gods={[y.ganGod, y.zhiGod]} />
+          </div>
+        </section>
 
         <section className="card">
-          <SectionTitle>분야별 한 해 운세</SectionTitle>
+          <SectionTitle sub="75점 이상 좋음 · 58~74점 보통 · 57점 이하 조심">분야별 한 해 운세</SectionTitle>
           <ul className="space-y-4">
             {y.categories.map((c) => (
               <li key={c.category}>
@@ -86,6 +101,10 @@ export default function FortuneView() {
 
         <section className="card">
           <SectionTitle sub="절기 기준 12개월 (입춘 무렵 시작하는 인월부터)">월별 운세</SectionTitle>
+          <EasyNote className="mb-4">
+            사주의 한 해는 1월 1일이 아니라 입춘(2월 4일 무렵)에 시작하고, 달도 절기를 기준으로 바뀝니다. 그래서 &lsquo;2월&rsquo;은 대략
+            2월 초~3월 초를 뜻합니다.
+          </EasyNote>
           <MonthChart months={y.months} best={y.bestMonths[0]} worst={y.cautionMonths[0]} />
           <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <p className="rounded-lg bg-surface-2 p-3">
