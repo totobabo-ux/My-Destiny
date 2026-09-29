@@ -4,6 +4,7 @@ import {
   GAN_ELEMENT,
   GAN_HE_ELEMENT,
   GAN_KO,
+  ZHI_ELEMENT,
   ZHI_KO,
   ZODIAC,
   isGanChong,
@@ -14,6 +15,7 @@ import {
   isZhiHai,
   isZhiHe,
   isZhiXing,
+  elementValue,
 } from "./constants";
 
 export interface CompatItem {
@@ -22,12 +24,128 @@ export interface CompatItem {
   text: string;
 }
 
+export interface CompatArea {
+  area: string;
+  score: number;
+  text: string;
+}
+
+export interface CompatPeriod {
+  year: number;
+  ageA: number;
+  ageB: number;
+  goodA: boolean;
+  goodB: boolean;
+  label: string;
+  text: string;
+}
+
 export interface CompatResult {
   score: number;
   grade: string;
   summary: string;
   items: CompatItem[];
+  areas: CompatArea[];
+  timeline: CompatPeriod[];
 }
+
+const AREA_TEXT: Record<string, [string, string, string]> = {
+  "끌림·연애": [
+    "첫눈에 끌리는 강한 인연입니다. 함께 있으면 설렘이 오래가고 표현도 자연스럽습니다.",
+    "천천히 스며드는 관계입니다. 시간이 지날수록 편안함 속에 정이 깊어집니다.",
+    "설렘보다는 차이가 먼저 보일 수 있습니다. 상대의 매력을 발견하려는 노력이 필요합니다.",
+  ],
+  "결혼·생활": [
+    "생활 리듬과 가정에 대한 생각이 잘 맞아 함께 살수록 안정되는 궁합입니다.",
+    "큰 충돌은 없지만 집안일·생활 습관은 미리 규칙을 정해 두면 좋습니다.",
+    "생활 방식의 차이가 커서 사소한 일로 다투기 쉽습니다. 각자의 공간과 역할을 분명히 하세요.",
+  ],
+  "대화·소통": [
+    "말이 잘 통하고 생각의 속도가 비슷합니다. 대화만으로도 문제를 풀어 가는 사이입니다.",
+    "필요한 말은 통하지만 감정 표현 방식은 조금 다릅니다. 확인하는 습관이 도움이 됩니다.",
+    "표현 방식이 달라 오해가 생기기 쉽습니다. 결론보다 감정을 먼저 들어 주세요.",
+  ],
+  "금전·가치관": [
+    "돈을 대하는 태도와 삶의 우선순위가 비슷해 함께 재산을 모으기 좋습니다.",
+    "씀씀이는 조금 다르지만 조율이 가능합니다. 공동 예산을 정해 두면 편합니다.",
+    "소비·저축 성향이 달라 금전 문제로 부딪히기 쉽습니다. 경제권과 원칙을 분명히 하세요.",
+  ],
+};
+
+const clampArea = (n: number) => Math.round(Math.max(35, Math.min(97, n)));
+const hasPeach = (s: SajuResult) => s.sinsal.some((x) => x.name.startsWith("도화"));
+
+function computeAreas(a: SajuResult, b: SajuResult): CompatArea[] {
+  const ea = GAN_ELEMENT[a.dayGan];
+  const eb = GAN_ELEMENT[b.dayGan];
+  const sheng = (ea + 1) % 5 === eb || (eb + 1) % 5 === ea;
+  const same = ea === eb;
+  const dayRel = zhiRelation(a.pillars[2].zhi, b.pillars[2].zhi);
+  const monthRel = zhiRelation(a.pillars[1].zhi, b.pillars[1].zhi);
+  const relScore: Record<string, number> = { 육합: 10, 삼합: 7, 충: -10, 원진: -7, 형: -5, 해: -4 };
+
+  let love = 66;
+  if (isGanHe(a.dayGan, b.dayGan)) love += 16;
+  else if (sheng) love += 8;
+  else if (isGanChong(a.dayGan, b.dayGan)) love -= 8;
+  if (hasPeach(a) || hasPeach(b)) love += 4;
+  if (dayRel === "육합" || dayRel === "삼합") love += 5;
+
+  let life = 66 + (dayRel ? relScore[dayRel] * 1.3 : 3) + (monthRel ? relScore[monthRel] * 0.5 : 0);
+  if (Math.abs(a.strength.score - b.strength.score) >= 25) life += 3; // 강약이 다르면 역할 분담이 자연스럽다
+
+  let talk = 66 + (same ? 8 : sheng ? 7 : isGanHe(a.dayGan, b.dayGan) ? 5 : -5);
+  const ta = a.groups["식상"];
+  const tb = b.groups["식상"];
+  if (ta >= 1 && tb >= 1) talk += 4;
+  if ((ta === 0 && tb >= 3) || (tb === 0 && ta >= 3)) talk -= 5;
+
+  let money = 66;
+  const wa = a.groups["재성"];
+  const wb = b.groups["재성"];
+  money += Math.abs(wa - wb) <= 1 ? 6 : -4;
+  if (a.groups["비겁"] >= 3 || b.groups["비겁"] >= 3) money -= 5;
+  if (b.elements[a.yongsin] >= 2) money += 3;
+  if (a.elements[b.yongsin] >= 2) money += 3;
+
+  return (
+    [
+      ["끌림·연애", love],
+      ["결혼·생활", life],
+      ["대화·소통", talk],
+      ["금전·가치관", money],
+    ] as [string, number][]
+  ).map(([area, raw]) => {
+    const score = clampArea(raw);
+    return { area, score, text: AREA_TEXT[area][score >= 76 ? 0 : score >= 58 ? 1 : 2] };
+  });
+}
+
+/** 앞으로 30년, 10년 단위로 두 사람의 대운이 각자의 용신에 도움이 되는지 비교 */
+function computeTimeline(a: SajuResult, b: SajuResult, fromYear: number): CompatPeriod[] {
+  const good = (s: SajuResult, year: number) => {
+    const d = [...s.daYun].reverse().find((x) => x.startYear <= year);
+    if (!d) return true;
+    return elementValue(GAN_ELEMENT[d.gan], s.yongsin) + 1.5 * elementValue(ZHI_ELEMENT[d.zhi], s.yongsin) >= 0;
+  };
+  const an = a.profile.name;
+  const bn = b.profile.name;
+  return [0, 10, 20].map((off) => {
+    const year = fromYear + off;
+    const ga = good(a, year);
+    const gb = good(b, year);
+    const [label, text] =
+      ga && gb
+        ? ["함께 상승", "두 사람 모두 운이 받쳐 주는 시기입니다. 결혼·이사·사업 등 큰 결정을 함께 내리기 좋습니다."]
+        : ga
+          ? [`${an}님이 이끄는 시기`, `${an}님의 운이 좋은 반면 ${bn}님은 다소 힘든 시기입니다. ${an}님이 든든한 버팀목이 되어 주세요.`]
+          : gb
+            ? [`${bn}님이 이끄는 시기`, `${bn}님의 운이 좋은 반면 ${an}님은 다소 힘든 시기입니다. ${bn}님이 든든한 버팀목이 되어 주세요.`]
+            : ["서로 의지할 시기", "두 사람 모두 운이 무거운 시기입니다. 큰 모험은 미루고 서로를 다독이며 내실을 다지세요."];
+    return { year, ageA: year - a.solar.year, ageB: year - b.solar.year, goodA: ga, goodB: gb, label, text };
+  });
+}
+
 
 function zhiRelation(a: number, b: number) {
   if (isZhiHe(a, b)) return "육합";
@@ -39,7 +157,7 @@ function zhiRelation(a: number, b: number) {
   return null;
 }
 
-export function computeCompat(a: SajuResult, b: SajuResult): CompatResult {
+export function computeCompat(a: SajuResult, b: SajuResult, fromYear = new Date().getFullYear()): CompatResult {
   const items: CompatItem[] = [];
   const an = a.profile.name;
   const bn = b.profile.name;
@@ -149,5 +267,5 @@ export function computeCompat(a: SajuResult, b: SajuResult): CompatResult {
             ? ["보통", "장단점이 공존하는 궁합입니다. 대화와 배려로 부족한 부분을 채워 가세요."]
             : ["노력 필요", "기질 차이가 커서 부딪힐 일이 많을 수 있습니다. 하지만 궁합은 참고일 뿐, 이해와 존중이 가장 큰 궁합입니다."];
 
-  return { score, grade, summary, items };
+  return { score, grade, summary, items, areas: computeAreas(a, b), timeline: computeTimeline(a, b, fromYear) };
 }

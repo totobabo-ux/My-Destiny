@@ -3,6 +3,7 @@
 import { Lunar, LunarYear, Solar } from "lunar-javascript";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { Char, SectionTitle } from "@/components/saju-ui";
+import { beijingToKoreaHm } from "@/lib/saju/time";
 import { GAN_KO, JIEQI_KO, ZHI_KO, ZODIAC, ganIndex, zhiIndex } from "@/lib/saju/constants";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -127,7 +128,10 @@ function DayDetail({ c }: { c: DayCell }) {
   const m = l.getMonthInGanZhiExact();
   const d = l.getDayInGanZhi();
   const jq = l.getJieQi();
-  const jqTime = jq ? l.getJieQiTable()[jq]?.toYmdHms() : null;
+  const jqSolar = jq ? l.getJieQiTable()[jq] : null;
+  const jqTime = jqSolar
+    ? beijingToKoreaHm(jqSolar.getYear(), jqSolar.getMonth(), jqSolar.getDay(), jqSolar.getHour(), jqSolar.getMinute())
+    : null;
   const pillars: [string, string][] = [["일", d], ["월", m], ["년", y]];
   return (
     <section className="card">
@@ -146,7 +150,7 @@ function DayDetail({ c }: { c: DayCell }) {
         {jq && (
           <p className="text-sm">
             <b className="text-gold">{JIEQI_KO[jq] ?? jq}</b>
-            <span className="block text-muted">절입 시각 {jqTime?.slice(11, 16)}</span>
+            <span className="block text-muted">절입 시각 {jqTime} (한국 시각)</span>
           </p>
         )}
       </div>

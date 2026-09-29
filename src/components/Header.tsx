@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/saju", label: "사주" },
-  { href: "/today", label: "오늘의 운세" },
+  { href: "/today", label: "오늘" },
+  { href: "/fortune", label: "신년운세" },
   { href: "/gunghap", label: "궁합" },
   { href: "/manse", label: "만세력" },
 ];

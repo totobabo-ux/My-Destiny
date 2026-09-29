@@ -10,6 +10,7 @@ import type { Profile } from "@/lib/saju/calc";
 const MENUS = [
   { href: "/saju", hanja: "四柱", title: "사주팔자", desc: "타고난 기질·오행·대운 풀이" },
   { href: "/today", hanja: "日運", title: "오늘의 운세", desc: "일진으로 보는 하루의 흐름" },
+  { href: "/fortune", hanja: "歲運", title: "신년·월별 운세", desc: "올해 총운과 12개월 흐름·삼재" },
   { href: "/gunghap", hanja: "宮合", title: "궁합", desc: "두 사람의 사주 궁합 점수" },
   { href: "/manse", hanja: "萬歲曆", title: "만세력", desc: "양력·음력·간지·절기 달력" },
 ];
@@ -34,7 +35,7 @@ export default function Home({ startNew }: { startNew: boolean }) {
         <p className="mt-2 text-muted">생년월일시로 풀어 보는 사주 · 궁합 · 오늘의 운세 · 만세력</p>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {MENUS.map((m) => (
           <Link key={m.href} href={m.href} className="card group transition hover:border-accent">
             <p className="font-serif text-2xl font-bold text-accent">{m.hanja}</p>

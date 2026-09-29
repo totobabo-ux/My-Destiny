@@ -5,7 +5,7 @@ import { Char, ProfileBar, ScoreBar, SectionTitle } from "@/components/saju-ui";
 import { useProfiles } from "@/lib/profiles";
 import { computeSaju } from "@/lib/saju/calc";
 import { computeDaily } from "@/lib/saju/daily";
-import { ELEMENT_HEX, GAN_KO, ZHI_KO } from "@/lib/saju/constants";
+import { ELEMENT_HEX, ELEMENT_KO, GAN_KO, ZHI_KO } from "@/lib/saju/constants";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -86,19 +86,24 @@ export default function TodayView() {
         </section>
 
         <section className="card">
-          <SectionTitle sub={`나의 용신(${daily.lucky.element}) 기운을 살리는 방법`}>오늘의 행운</SectionTitle>
+          <SectionTitle sub={`오늘 보충할 기운: ${ELEMENT_KO[daily.lucky.element]}`}>오늘의 행운</SectionTitle>
+          <p className="mb-4 text-sm leading-relaxed text-muted">{daily.lucky.reason}</p>
           <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
             {[
-              ["색", daily.lucky.color],
-              ["숫자", daily.lucky.numbers],
-              ["방향", daily.lucky.direction],
-              ["시간", daily.lucky.time],
-            ].map(([k, v]) => (
+              ["색", daily.lucky.color, null],
+              ["숫자", daily.lucky.numbers, null],
+              ["방향", daily.lucky.direction, `재물은 ${daily.lucky.wealthDirection}`],
+              ["시간", daily.lucky.time, daily.lucky.timeNote],
+            ].map(([k, v, note]) => (
               <div key={k} className="rounded-lg bg-surface-2 p-3">
                 <p className="text-xs text-muted">행운의 {k}</p>
-                <p className="mt-1 font-bold" style={k === "색" ? { color: ELEMENT_HEX[saju.yongsin] } : undefined}>
+                <p
+                  className="mt-1 font-bold"
+                  style={k === "색" ? { color: ELEMENT_HEX[daily.lucky.element] } : undefined}
+                >
                   {v}
                 </p>
+                {note && <p className="mt-0.5 text-[11px] text-muted">{note}</p>}
               </div>
             ))}
           </div>

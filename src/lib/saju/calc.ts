@@ -24,6 +24,7 @@ import {
   zhiIndex,
   zhiMainGan,
 } from "./constants";
+import { type TimeAdjust, adjustBirthTime, cityOf } from "./time";
 
 export interface Profile {
   id: string;
@@ -37,8 +38,10 @@ export interface Profile {
   /** null이면 태어난 시간을 모름 */
   hour: number | null;
   minute: number | null;
-  /** 한국 표준시(동경 135°)와 실제 경도(약 127°) 차이 보정: -30분 */
+  /** 출생지 경도 기준 태양시 보정. 서머타임은 이 값과 무관하게 항상 보정한다. */
   timeCorrection: boolean;
+  /** 출생지 (time.ts CITIES의 key). 없으면 서울 */
+  city?: string;
   /** 야자시 적용: 23~24시 출생을 당일 일주로 본다 */
   yajasi: boolean;
 }
@@ -75,12 +78,14 @@ export interface SajuResult {
   solar: { year: number; month: number; day: number; hour: number; minute: number };
   lunar: { year: number; month: number; day: number; leap: boolean };
   hasTime: boolean;
+  timeAdjust: TimeAdjust | null;
   pillars: Pillar[];
   dayGan: number;
   zodiac: number;
   elements: number[];
   strength: { score: number; label: string; strong: boolean };
   yongsin: Element;
+  yongsinInfo: { eokbu: Element; johu: Element | null; basis: "억부" | "조후"; reason: string };
   groups: Record<string, number>;
   daYun: DaYunItem[];
   daYunStartAge: number;
@@ -90,20 +95,25 @@ export interface SajuResult {
 
 const PILLAR_LABEL = { year: "년주", month: "월주", day: "일주", time: "시주" } as const;
 
-/** 입력한 날짜를 양력 Solar 객체로 변환한다. 시간 보정 포함. */
-export function toSolar(p: Profile): Solar {
+/** 입력한 날짜를 양력 Solar 객체로 변환한다. 서머타임·경도 보정 포함. */
+export function toSolarWithAdjust(p: Profile): { solar: Solar; jieqiSolar: Solar; adjust: TimeAdjust | null } {
   const h = p.hour ?? 12;
   const mi = p.hour === null ? 0 : (p.minute ?? 0);
-  let base: Solar =
+  const base: Solar =
     p.calendar === "lunar"
       ? Lunar.fromYmdHms(p.year, p.leapMonth ? -p.month : p.month, p.day, h, mi, 0).getSolar()
       : Solar.fromYmdHms(p.year, p.month, p.day, h, mi, 0);
-  if (p.timeCorrection && p.hour !== null) {
-    const d = new Date(Date.UTC(base.getYear(), base.getMonth() - 1, base.getDay(), base.getHour(), base.getMinute() - 30));
-    base = Solar.fromYmdHms(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), 0);
-  }
-  return base;
+  const a = adjustBirthTime(
+    base.getYear(), base.getMonth(), base.getDay(), base.getHour(), base.getMinute(),
+    p.timeCorrection ? cityOf(p.city).lon : null,
+  );
+  const b = a.beijing;
+  const jieqiSolar = Solar.fromYmdHms(b.y, b.m, b.d, b.h, b.mi, 0);
+  if (p.hour === null) return { solar: base, jieqiSolar, adjust: null };
+  return { solar: Solar.fromYmdHms(a.y, a.m, a.d, a.h, a.mi, 0), jieqiSolar, adjust: a };
 }
+
+export const toSolar = (p: Profile) => toSolarWithAdjust(p).solar;
 
 /** 입력값이 실제로 존재하는 날짜인지 확인. 문제가 있으면 오류 메시지를 반환한다. */
 export function validateProfile(p: Profile): string | null {
@@ -128,15 +138,18 @@ export function yearGanZhi(year: number) {
 }
 
 export function computeSaju(p: Profile): SajuResult {
-  const solar = toSolar(p);
+  const { solar, jieqiSolar, adjust } = toSolarWithAdjust(p);
   const lunar = solar.getLunar();
+  // 일주·시주는 출생지의 태양시로, 년주·월주·대운은 절기와 같은 기준(UTC+8)의 출생 순간으로 계산한다
   const ec = lunar.getEightChar();
   ec.setSect(p.yajasi ? 2 : 1);
+  const ecJieqi = jieqiSolar.getLunar().getEightChar();
+  ecJieqi.setSect(p.yajasi ? 2 : 1);
   const hasTime = p.hour !== null;
 
   const raw: [Pillar["key"], string, string][] = [
-    ["year", ec.getYear(), ec.getYearNaYin()],
-    ["month", ec.getMonth(), ec.getMonthNaYin()],
+    ["year", ecJieqi.getYear(), ecJieqi.getYearNaYin()],
+    ["month", ecJieqi.getMonth(), ecJieqi.getMonthNaYin()],
     ["day", ec.getDay(), ec.getDayNaYin()],
     ["time", ec.getTime(), ec.getTimeNaYin()],
   ];
@@ -195,10 +208,12 @@ export function computeSaju(p: Profile): SajuResult {
 
   // 억부 용신: 강하면 설기·극하는 오행 중 부족한 것, 약하면 생조하는 오행 중 부족한 것
   const candidates = strong ? [(dayEl + 1) % 5, (dayEl + 2) % 5, (dayEl + 3) % 5] : [(dayEl + 4) % 5, dayEl];
-  const yongsin = candidates.reduce((a, b) => (elements[b] < elements[a] ? b : a)) as Element;
+  const eokbu = candidates.reduce((a, b) => (elements[b] < elements[a] ? b : a)) as Element;
+  const yongsinInfo = decideYongsin(pillars[1].zhi, elements, eokbu, candidates);
+  const yongsin = yongsinInfo.basis === "조후" ? yongsinInfo.johu! : eokbu;
 
   // 대운
-  const yun = ec.getYun(p.gender === "M" ? 1 : 0, p.yajasi ? 2 : 1);
+  const yun = ecJieqi.getYun(p.gender === "M" ? 1 : 0, p.yajasi ? 2 : 1);
   const birthYear = solar.getYear();
   const daYun: DaYunItem[] = yun
     .getDaYun(10)
@@ -227,17 +242,43 @@ export function computeSaju(p: Profile): SajuResult {
     },
     lunar: { year: lunar.getYear(), month: Math.abs(lunar.getMonth()), day: lunar.getDay(), leap: lunar.getMonth() < 0 },
     hasTime,
+    timeAdjust: adjust,
     pillars,
     dayGan,
     zodiac: pillars[0].zhi,
     elements,
     strength: { score, label, strong },
     yongsin,
+    yongsinInfo,
     groups,
     daYun,
     daYunStartAge: daYun[0]?.age ?? 0,
     sinsal: findSinsal(pillars, dayGan),
     relations: findRelations(pillars),
+  };
+}
+
+const EL_NAME = ["목", "화", "토", "금", "수"];
+
+/**
+ * 조후(調候): 한여름(巳午未월)에는 열기를 식힐 수(水), 한겨울(亥子丑월)에는 언 땅을 녹일 화(火)가 필요하다.
+ * 계절의 치우침이 심한데(해당 오행 0개) 그 기운이 없으면 조후를 억부보다 우선한다.
+ */
+function decideYongsin(monthZhi: number, elements: number[], eokbu: Element, candidates: number[]) {
+  const summer = [5, 6, 7].includes(monthZhi);
+  const winter = [11, 0, 1].includes(monthZhi);
+  const johu: Element | null = summer && elements[4] <= 1 ? 4 : winter && elements[1] <= 1 ? 1 : null;
+  if (johu === null)
+    return { eokbu, johu, basis: "억부" as const, reason: `일간의 강약을 맞추는 ${EL_NAME[eokbu]} 기운이 가장 필요합니다 (억부 용신).` };
+  const season = summer ? "무더운 여름" : "추운 겨울";
+  if (johu === eokbu || elements[johu] === 0 || candidates.includes(johu))
+    return {
+      eokbu, johu, basis: "조후" as const,
+      reason: `${season}에 태어나 ${EL_NAME[johu]} 기운으로 온도를 맞추는 것이 가장 급합니다 (조후 용신).`,
+    };
+  return {
+    eokbu, johu, basis: "억부" as const,
+    reason: `강약을 맞추는 ${EL_NAME[eokbu]} 기운이 용신이며, ${season} 생이라 ${EL_NAME[johu]} 기운도 보조로 도움이 됩니다.`,
   };
 }
 

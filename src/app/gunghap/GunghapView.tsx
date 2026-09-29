@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import ProfileForm from "@/components/ProfileForm";
-import { Char, NeedProfile, SectionTitle } from "@/components/saju-ui";
+import { Char, NeedProfile, ScoreBar, SectionTitle } from "@/components/saju-ui";
 import { useProfiles } from "@/lib/profiles";
 import { type Profile, type SajuResult, computeSaju } from "@/lib/saju/calc";
 import { computeCompat } from "@/lib/saju/compat";
@@ -67,6 +67,40 @@ export default function GunghapView() {
             </div>
             <p className="mt-4 font-serif text-2xl font-bold text-accent">{result.compat.grade}</p>
             <p className="mx-auto mt-2 max-w-xl leading-relaxed">{result.compat.summary}</p>
+          </section>
+
+          <section className="card">
+            <SectionTitle>분야별 궁합</SectionTitle>
+            <ul className="space-y-4">
+              {result.compat.areas.map((a) => (
+                <li key={a.area}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 shrink-0 font-bold">{a.area}</span>
+                    <ScoreBar score={a.score} />
+                    <span className="w-8 text-right text-sm tabular-nums">{a.score}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{a.text}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="card">
+            <SectionTitle sub="10년 단위로 두 사람의 대운이 각자에게 도움이 되는지 비교">함께 걷는 앞으로의 30년</SectionTitle>
+            <ol className="space-y-3">
+              {result.compat.timeline.map((t) => (
+                <li key={t.year} className="rounded-xl border border-line p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold tabular-nums">{t.year}년~</span>
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">{t.label}</span>
+                    <span className="ml-auto text-xs text-muted">
+                      {result.sa.profile.name} {t.ageA}세 {t.goodA ? "▲" : "▽"} · {result.sb.profile.name} {t.ageB}세 {t.goodB ? "▲" : "▽"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{t.text}</p>
+                </li>
+              ))}
+            </ol>
           </section>
 
           <section className="card">

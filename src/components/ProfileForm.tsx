@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { type Profile, validateProfile } from "@/lib/saju/calc";
 import { newId } from "@/lib/profiles";
+import { CITIES, DEFAULT_CITY } from "@/lib/saju/time";
 
 const empty = (): Profile => ({
   id: newId(),
@@ -16,6 +17,7 @@ const empty = (): Profile => ({
   hour: 12,
   minute: 0,
   timeCorrection: true,
+  city: DEFAULT_CITY,
   yajasi: false,
 });
 
@@ -111,13 +113,27 @@ export default function ProfileForm({
         </div>
       </div>
 
+      {p.hour !== null && (
+        <label className="block">
+          <span className="mb-1 block text-sm text-muted">태어난 지역</span>
+          <select className="input" value={p.city ?? DEFAULT_CITY} onChange={(e) => set("city", e.target.value)}>
+            {CITIES.map((c) => (
+              <option key={c.key} value={c.key}>{c.name}</option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-muted">
+            지역의 경도로 실제 태양시를 계산합니다. 서머타임 기간(1948~60년, 1987~88년) 출생은 자동으로 1시간 보정됩니다.
+          </span>
+        </label>
+      )}
+
       <details className="rounded-lg border border-line bg-surface-2/50 px-3 py-2 text-sm">
         <summary className="cursor-pointer text-muted">고급 설정</summary>
         <div className="mt-2 space-y-2">
           <label className="flex items-start gap-2">
             <input type="checkbox" className="mt-1" checked={p.timeCorrection} onChange={(e) => set("timeCorrection", e.target.checked)} />
             <span>
-              경도 보정 (-30분)
+              경도(태양시) 보정
               <span className="block text-xs text-muted">한국 표준시는 동경 135° 기준이라 실제 태양시보다 약 30분 빠릅니다. 대부분의 한국 만세력이 적용합니다.</span>
             </span>
           </label>

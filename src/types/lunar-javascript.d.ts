@@ -54,6 +54,9 @@ declare module "lunar-javascript" {
     getYearShengXiao(): string;
     getDayYi(): string[];
     getDayJi(): string[];
+    getDayPositionXiDesc(): string;
+    getDayPositionCaiDesc(): string;
+    getTimes(): { getTianShenLuck(): string }[];
   }
   export const Solar: {
     fromYmd(y: number, m: number, d: number): Solar;

@@ -1,5 +1,5 @@
 import type { DaYunItem, Pillar, SajuResult } from "./calc";
-import { type TenGod, GAN_ELEMENT, GAN_KO, TEN_GOD_GROUP, ZHI_ELEMENT, ZHI_KO, isZhiChong, isZhiHe, isSanHe } from "./constants";
+import { type TenGod, GAN_ELEMENT, elementValue, GAN_KO, TEN_GOD_GROUP, ZHI_ELEMENT, ZHI_KO, isZhiChong, isZhiHe, isSanHe } from "./constants";
 import { TEN_GOD_LUCK } from "./interpret";
 
 // 궁위론: 년주·월주 = 초년, 월지·일주 = 중년, 시주 = 말년.
@@ -83,12 +83,6 @@ const ADVICE: Record<Group, string> = {
   관성: "책임감은 강점이지만 스스로를 몰아세우지 마세요. 휴식도 실력입니다.",
   인성: "배운 것을 실천으로 옮길 때 운이 커집니다. 생각이 많아질 땐 작은 것부터 시작하세요.",
 };
-
-/** 오행이 용신에게 얼마나 도움이 되는가: 용신 +2, 희신 +1, 한신 0, 구신 -1, 기신 -2 */
-function elementValue(el: number, yong: number) {
-  const diff = (el - yong + 5) % 5;
-  return [2, 0, -1, -2, 1][diff];
-}
 
 export function computeLifeStages(s: SajuResult): LifeStage[] {
   const pillar = (k: Pillar["key"]) => s.pillars.find((p) => p.key === k);

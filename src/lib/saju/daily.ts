@@ -1,9 +1,8 @@
-import { Solar } from "lunar-javascript";
+import { type Lunar, Solar } from "lunar-javascript";
 import type { SajuResult } from "./calc";
 import {
+  type Element,
   type TenGod,
-  ELEMENT_COLOR_NAME,
-  ELEMENT_DIRECTION,
   ELEMENT_KO,
   ELEMENT_NUMBERS,
   GAN_ELEMENT,
@@ -26,7 +25,7 @@ export const CATEGORIES = ["총운", "재물운", "애정운", "건강운", "직
 type Category = (typeof CATEGORIES)[number];
 
 /** 십신별 분야 기본 점수 [총운, 재물, 애정, 건강, 직장] */
-const BASE: Record<TenGod, number[]> = {
+export const BASE: Record<TenGod, number[]> = {
   비견: [68, 58, 62, 74, 66],
   겁재: [60, 50, 58, 68, 62],
   식신: [78, 72, 74, 80, 70],
@@ -75,7 +74,7 @@ export interface DailyResult {
   scores: { category: Category; score: number; text: string }[];
   headline: string;
   relationNote: string | null;
-  lucky: { color: string; numbers: string; direction: string; element: string; time: string };
+  lucky: Lucky;
 }
 
 function hash(s: string) {
@@ -124,11 +123,7 @@ export function computeDaily(saju: SajuResult, y: number, m: number, d: number):
     return { category, score, text: pool[(seed >>> (i * 3 + 1)) % pool.length] };
   });
 
-  // 행운의 시간: 내 일지와 육합이 되는 시진
-  const luckyZhi = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].find((z) => isZhiHe(myDayZhi, z))!;
-  const startHour = (luckyZhi * 2 + 23) % 24;
-  const yEl = saju.yongsin;
-  const nums = ELEMENT_NUMBERS[yEl];
+  const lucky = computeLucky(saju, lunar, gan, zhi, seed);
 
   return {
     date: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
@@ -138,12 +133,97 @@ export function computeDaily(saju: SajuResult, y: number, m: number, d: number):
     scores,
     headline: `${TEN_GOD_LUCK[ganGod].keyword}의 날 — ${TEN_GOD_LUCK[ganGod].text}`,
     relationNote,
-    lucky: {
-      color: ELEMENT_COLOR_NAME[yEl],
-      numbers: `${nums[0]}, ${nums[1]}`,
-      direction: ELEMENT_DIRECTION[yEl],
-      element: ELEMENT_KO[yEl],
-      time: `${ZHI_KO[luckyZhi]}시 (${String(startHour).padStart(2, "0")}:00~${String((startHour + 2) % 24).padStart(2, "0")}:00)`,
-    },
+    lucky,
+  };
+}
+
+// ── 오늘의 행운 ─────────────────────────────────────────────
+// 용신·희신 중 오늘 일진에 부족한 기운을 고르고, 방향은 그날의 희신·재신 방위, 시간은 시진의 황도/흑도와
+// 내 일지와의 합·충을 따져 날마다 달라지게 한다.
+
+export interface Lucky {
+  element: Element;
+  reason: string;
+  color: string;
+  numbers: string;
+  direction: string;
+  wealthDirection: string;
+  time: string;
+  timeNote: string;
+}
+
+const SHADES: string[][] = [
+  ["초록", "연두", "청록", "민트", "올리브"],
+  ["빨강", "분홍", "주황", "자주", "코랄"],
+  ["노랑", "베이지", "갈색", "황토", "카키"],
+  ["흰색", "은색", "회색", "아이보리", "펄"],
+  ["검정", "남색", "네이비", "진청", "차콜"],
+];
+
+const DIRECTION_KO: Record<string, string> = {
+  正北: "북쪽", 东北: "북동쪽", 正东: "동쪽", 东南: "남동쪽",
+  正南: "남쪽", 西南: "남서쪽", 正西: "서쪽", 西北: "북서쪽", 中宫: "중앙",
+};
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+function computeLucky(saju: SajuResult, lunar: Lunar, gan: number, zhi: number, seed: number): Lucky {
+  const yong = saju.yongsin;
+  const hee = ((yong + 4) % 5) as Element; // 용신을 생해 주는 오행
+  const enemy = (yong + 3) % 5; // 용신을 극하는 오행
+  const todayEls: number[] = [GAN_ELEMENT[gan], ZHI_ELEMENT[zhi]];
+
+  // 원국 + 오늘 일진을 합친 오행 분포에서 용신·희신 중 더 부족한 쪽을 오늘 보충할 기운으로 삼는다
+  const total = saju.elements.map((n, i) => n + todayEls.filter((e) => e === i).length * 1.5);
+  const element: Element =
+    todayEls.includes(enemy) || total[yong] < total[hee] ? yong
+      : total[hee] < total[yong] ? hee
+        : seed % 2 ? yong : hee;
+  const other = element === yong ? hee : yong;
+
+  const todayText = `${ELEMENT_KO[GAN_ELEMENT[gan]]}·${ELEMENT_KO[ZHI_ELEMENT[zhi]]}`;
+  const reason = todayEls.includes(enemy)
+    ? `오늘은 용신을 누르는 ${ELEMENT_KO[enemy]} 기운이 들어오는 날이라, ${ELEMENT_KO[element]} 기운으로 힘을 보태야 합니다.`
+    : todayEls.includes(element)
+      ? `오늘 일진(${todayText})에 ${ELEMENT_KO[element]} 기운이 함께 들어와 흐름을 타기 좋은 날입니다.`
+      : `오늘 일진(${todayText})에는 없는 ${ELEMENT_KO[element]} 기운을 보충하면 균형이 맞습니다.`;
+
+  const main = SHADES[element][seed % 5];
+  const sub = SHADES[other][(seed >>> 5) % 5];
+  const n1 = ELEMENT_NUMBERS[element][(seed >>> 8) % 2];
+  const n2 = ELEMENT_NUMBERS[other][(seed >>> 9) % 2];
+
+  // 시진 고르기: 황도(吉) 여부 + 시지 오행의 용신 기여 + 내 일지·오늘 일지와의 합충
+  const myDayZhi = saju.pillars[2].zhi;
+  const times = lunar.getTimes().slice(0, 12); // 0번은 자시, 마지막 13번째(야자시)는 제외
+  let best = { z: 0, score: -Infinity, good: false };
+  times.forEach((t, z) => {
+    const good = t.getTianShenLuck() === "吉";
+    const el = ZHI_ELEMENT[z];
+    let score = good ? 2 : 0;
+    score += el === yong ? 2 : el === hee ? 1 : el === enemy ? -2 : 0;
+    if (isZhiHe(myDayZhi, z) || isSanHe(myDayZhi, z)) score += 2;
+    if (isZhiChong(myDayZhi, z)) score -= 3;
+    if (isZhiChong(zhi, z)) score -= 2;
+    score += ((seed >>> z) & 1) * 0.5; // 동점일 때 날마다 다르게
+    if (score > best.score) best = { z, score, good };
+  });
+  const start = (best.z * 2 + 23) % 24;
+  const timeReasons = [
+    best.good && "황도길시",
+    ZHI_ELEMENT[best.z] === yong && "용신 시간",
+    ZHI_ELEMENT[best.z] === hee && "희신 시간",
+    (isZhiHe(myDayZhi, best.z) || isSanHe(myDayZhi, best.z)) && "내 일지와 합",
+  ].filter(Boolean);
+
+  return {
+    element,
+    reason,
+    color: `${main} · ${sub}`,
+    numbers: `${n1}, ${n2}`,
+    direction: DIRECTION_KO[lunar.getDayPositionXiDesc()] ?? lunar.getDayPositionXiDesc(),
+    wealthDirection: DIRECTION_KO[lunar.getDayPositionCaiDesc()] ?? lunar.getDayPositionCaiDesc(),
+    time: `${ZHI_KO[best.z]}시 (${pad2(start)}:00~${pad2((start + 2) % 24)}:00)`,
+    timeNote: timeReasons.join(" · "),
   };
 }

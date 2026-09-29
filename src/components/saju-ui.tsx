@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { shareUrl } from "@/lib/share";
 import type { Pillar } from "@/lib/saju/calc";
 import {
   ELEMENT_HEX,
@@ -159,5 +161,29 @@ export function SectionTitle({ children, sub }: { children: React.ReactNode; sub
       <h2 className="font-serif text-xl font-bold">{children}</h2>
       {sub && <p className="text-sm text-muted">{sub}</p>}
     </div>
+  );
+}
+
+/** 현재 사이트 주소 + path를 공유(모바일) 또는 복사(데스크톱) */
+export function ShareButton({ path, title, label = "공유" }: { path: string; title: string; label?: string }) {
+  const [msg, setMsg] = useState("");
+  return (
+    <span className="relative">
+      <button
+        className="btn btn-ghost px-3 py-1 text-sm"
+        onClick={async () => {
+          const m = await shareUrl(window.location.origin + path, title);
+          if (m) {
+            setMsg(m);
+            setTimeout(() => setMsg(""), 2000);
+          }
+        }}
+      >
+        {label}
+      </button>
+      {msg && (
+        <span className="absolute top-full right-0 z-10 mt-1 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs text-bg">{msg}</span>
+      )}
+    </span>
   );
 }

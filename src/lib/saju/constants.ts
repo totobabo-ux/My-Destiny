@@ -127,3 +127,16 @@ export const NAYIN_KO: Record<string, string> = {
 
 export const ganKo = (g: number) => GAN_KO[g];
 export const zhiKo = (z: number) => ZHI_KO[z];
+
+/** 오행이 용신에 얼마나 도움이 되는가: 용신 +2, 희신 +1, 한신 0, 구신 -1, 기신 -2 */
+export function elementValue(el: number, yong: number) {
+  return [2, 0, -1, -2, 1][(el - yong + 5) % 5];
+}
+
+/** 삼재: 띠(년지) 삼합 그룹별로 3년간 드는 해의 지지 [들삼재, 눌삼재, 날삼재] */
+export const SAMJAE: number[][] = [
+  [2, 3, 4], // 申子辰 띠 → 寅卯辰년
+  [11, 0, 1], // 巳酉丑 띠 → 亥子丑년
+  [8, 9, 10], // 寅午戌 띠 → 申酉戌년
+  [5, 6, 7], // 亥卯未 띠 → 巳午未년
+];
